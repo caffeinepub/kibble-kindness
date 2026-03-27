@@ -1,1177 +1,806 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Toaster } from "@/components/ui/sonner";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  ArrowRight,
-  CheckCircle2,
-  ChevronDown,
-  Gift,
-  Heart,
-  Package,
-  PawPrint,
-  QrCode,
-  RefreshCcw,
-  Smartphone,
-  Star,
-  Users,
-} from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useActor } from "./hooks/useActor";
+import { useInternetIdentity } from "./hooks/useInternetIdentity";
 
-const STATS = [
-  { label: "Meals Donated", value: "128,450", icon: Package },
-  { label: "Pets Fed", value: "34,200", icon: PawPrint },
-  { label: "Shelters Supported", value: "210", icon: Heart },
-  { label: "Donors", value: "8,900+", icon: Users },
-];
+// Keep actor + identity references alive (required by build)
+void useActor;
+void useInternetIdentity;
 
-const STORIES = [
-  {
-    name: "Bruno",
-    breed: "Labrador Mix",
-    shelter: "Happy Tails Rescue, Mumbai",
-    story:
-      "Bruno arrived malnourished and scared. Thanks to generous kibble donations, he gained weight, found his spark, and was adopted within three weeks.",
-    image: "/assets/generated/story-bruno.dim_400x300.jpg",
-    color: "bg-amber-50",
-  },
-  {
-    name: "Mittens",
-    breed: "Street Cat",
-    shelter: "Paws Unlimited, Delhi",
-    story:
-      "Mittens and her four kittens were found abandoned. Your food donations kept them healthy while we found loving homes for all five of them.",
-    image: "/assets/generated/story-mittens.dim_400x300.jpg",
-    color: "bg-orange-50",
-  },
-  {
-    name: "Raja",
-    breed: "Indian Pariah Dog",
-    shelter: "Street Angels, Bengaluru",
-    story:
-      "Raja patrolled the streets hungry for years. Community food drives powered by Thali Bharo changed his life — now he sleeps warm and full every night.",
-    image: "/assets/generated/story-raja.dim_400x300.jpg",
-    color: "bg-yellow-50",
-  },
-];
+/* ============================================================
+   HOOKS
+   ============================================================ */
 
-const SHELTERS = [
-  {
-    name: "Happy Tails Rescue",
-    city: "Mumbai",
-    animals: 85,
-    needs: "Dry Kibble, Wet Food",
-  },
-  {
-    name: "Paws Unlimited",
-    city: "Delhi",
-    animals: 120,
-    needs: "Kitten Formula, Wet Food",
-  },
-  {
-    name: "Street Angels NGO",
-    city: "Bengaluru",
-    animals: 60,
-    needs: "Dry Kibble, Treats",
-  },
-  {
-    name: "Furever Home",
-    city: "Chennai",
-    animals: 95,
-    needs: "Puppy Food, Senior Blend",
-  },
-  {
-    name: "Wagging Tails",
-    city: "Hyderabad",
-    animals: 45,
-    needs: "Mixed Kibble, Canned Food",
-  },
-  {
-    name: "Stray Saviours",
-    city: "Pune",
-    animals: 70,
-    needs: "Dry Kibble, Medical Diet",
-  },
-];
+function useScrollSpy() {
+  useEffect(() => {
+    const els = document.querySelectorAll(".section-hidden");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("animate-in");
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.12 },
+    );
+    for (const el of Array.from(els)) {
+      observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, []);
+}
 
-const FAQ = [
-  {
-    q: "How does my donation reach the pets?",
-    a: "We partner directly with verified shelters and rescue groups. Your food donation is delivered to their door or they pick it up from our collection hubs within 48 hours.",
-  },
-  {
-    q: "Can I donate online?",
-    a: "Yes! Use our online donation form to contribute money. We purchase bulk food at wholesale prices, making every rupee go further.",
-  },
-  {
-    q: "Which types of pet food are most needed?",
-    a: "Dry kibble for dogs and cats is the highest priority as it stores well. Wet food, kitten formula, and senior blends are also gratefully received.",
-  },
-  {
-    q: "Can I volunteer to deliver food?",
-    a: "Absolutely! Fill in the volunteer form and our team will connect you with a nearby shelter that needs delivery support.",
-  },
-];
-
-const PROCESSING_STEPS = [
-  { label: "Verifying your details...", icon: "🔍" },
-  { label: "Preparing your donation...", icon: "🎁" },
-  { label: "Almost ready...", icon: "✨" },
-];
-
-type Section = "home" | "donate" | "shelters" | "stories";
-type DonationStep = "form" | "processing" | "qr";
-
-export default function App() {
-  const [activeSection, setActiveSection] = useState<Section>("home");
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [donationAmount, setDonationAmount] = useState("");
-  const [donorName, setDonorName] = useState("");
-  const [donorEmail, setDonorEmail] = useState("");
-  const [donorMessage, setDonorMessage] = useState("");
-  const [selectedShelter, setSelectedShelter] = useState("");
-  const [donationStep, setDonationStep] = useState<DonationStep>("form");
-  const [processingStep, setProcessingStep] = useState(0);
-  const [submittedAmount, setSubmittedAmount] = useState("");
-  const [heroSlide, setHeroSlide] = useState(0);
-  const qrRef = useRef<HTMLDivElement>(null);
+function useCountUp(target: number, active: boolean) {
+  const [count, setCount] = useState(0);
+  const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setHeroSlide((prev) => (prev + 1) % 3);
-    }, 5000);
-    return () => clearInterval(timer);
+    if (!active) return;
+    const duration = 2000;
+    const start = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - (1 - progress) ** 3;
+      setCount(Math.floor(eased * target));
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        setCount(target);
+      }
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [active, target]);
+
+  return count;
+}
+
+/* ============================================================
+   SMALL COMPONENTS
+   ============================================================ */
+
+const SLIDE_IMAGES = [
+  "/assets/generated/hero-dog.dim_1200x600.jpg",
+  "/assets/generated/hero-cat.dim_1200x600.jpg",
+  "/assets/generated/hero-community.dim_1200x600.jpg",
+];
+
+function Navbar() {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const handleDonate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!donorName || !donorEmail || !donationAmount) return;
-
-    setSubmittedAmount(donationAmount);
-    setDonationStep("processing");
-    setProcessingStep(0);
-
-    for (let i = 0; i < PROCESSING_STEPS.length; i++) {
-      await new Promise((r) => setTimeout(r, 700));
-      setProcessingStep(i + 1);
-    }
-    await new Promise((r) => setTimeout(r, 400));
-    setDonationStep("qr");
-  };
-
-  useEffect(() => {
-    if (donationStep === "qr" && qrRef.current) {
-      setTimeout(() => {
-        qrRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 200);
-    }
-  }, [donationStep]);
-
-  const handleReset = () => {
-    setDonationStep("form");
-    setProcessingStep(0);
-    setDonorName("");
-    setDonorEmail("");
-    setDonationAmount("");
-    setDonorMessage("");
-    setSelectedShelter("");
-    setSubmittedAmount("");
-  };
+  const links = [
+    { label: "Home", href: "#home" },
+    { label: "Impact", href: "#impact" },
+    { label: "Donate", href: "#donate" },
+    { label: "Team", href: "#team" },
+  ];
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Toaster richColors position="top-center" />
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? "navbar-scrolled" : "bg-white/80 backdrop-blur-sm"
+      }`}
+    >
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <a
+          href="#home"
+          className="font-display font-brand text-2xl gold-text font-bold tracking-wide"
+          data-ocid="nav.link"
+        >
+          थाली Bharo
+        </a>
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur border-b border-border shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-8">
+          {links.map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              className="text-sm font-body text-gray-600 hover:text-green-700 transition-colors duration-200 tracking-wide"
+              data-ocid="nav.link"
+            >
+              {l.label}
+            </a>
+          ))}
+          <a
+            href="#donate"
+            className="btn-gold px-5 py-2 text-sm"
+            data-ocid="nav.primary_button"
+          >
+            Donate Now
+          </a>
+        </nav>
+
+        {/* Mobile hamburger */}
+        <button
+          type="button"
+          className="md:hidden text-green-700 p-2"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="Toggle menu"
+          data-ocid="nav.toggle"
+        >
+          <div className="space-y-1.5">
+            <span
+              className={`block w-6 h-0.5 bg-green-700 transition-all ${menuOpen ? "rotate-45 translate-y-2" : ""}`}
+            />
+            <span
+              className={`block w-6 h-0.5 bg-green-700 transition-all ${menuOpen ? "opacity-0" : ""}`}
+            />
+            <span
+              className={`block w-6 h-0.5 bg-green-700 transition-all ${menuOpen ? "-rotate-45 -translate-y-2" : ""}`}
+            />
+          </div>
+        </button>
+      </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className="md:hidden bg-white/98 backdrop-blur-xl border-t border-green-200 px-6 py-4 flex flex-col gap-4">
+          {links.map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              className="text-gray-700 hover:text-green-700 transition-colors py-1"
+              onClick={() => setMenuOpen(false)}
+              data-ocid="nav.link"
+            >
+              {l.label}
+            </a>
+          ))}
+        </div>
+      )}
+    </header>
+  );
+}
+
+function HeroSection() {
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setActive((v) => (v + 1) % SLIDE_IMAGES.length),
+      5000,
+    );
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <section
+      id="home"
+      className="relative w-full min-h-screen flex items-center justify-center overflow-hidden"
+    >
+      {SLIDE_IMAGES.map((src, i) => (
+        <div
+          key={src}
+          className={`hero-slide ${i === active ? "active" : ""}`}
+          style={{ backgroundImage: `url(${src})` }}
+        />
+      ))}
+
+      <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/70 z-10" />
+      <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent z-10" />
+
+      <div className="relative z-20 text-center px-6 max-w-4xl mx-auto">
+        <p className="font-body text-green-700/80 tracking-[0.3em] uppercase text-sm mb-4">
+          Pet Food Donation Platform
+        </p>
+        <h1 className="font-display font-brand text-6xl md:text-8xl font-bold gold-text leading-tight mb-6">
+          थाली Bharo
+        </h1>
+        <p className="font-body text-xl md:text-2xl text-gray-700 mb-10 max-w-2xl mx-auto leading-relaxed">
+          Your kindness fills bowls for many pets, one meal at a time.
+        </p>
+        <a
+          href="#donate"
+          className="btn-gold inline-block px-10 py-4 text-lg"
+          data-ocid="hero.primary_button"
+        >
+          Donate With Kindness
+        </a>
+      </div>
+
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-3">
+        {SLIDE_IMAGES.map((src, i) => (
           <button
             type="button"
-            data-ocid="nav.link"
-            onClick={() => setActiveSection("home")}
-            className="flex items-center gap-2 group"
-          >
-            <img
-              src="/assets/generated/kibble-kindness-logo-transparent.dim_200x200.png"
-              alt="Thali Bharo Logo"
-              className="h-10 w-10 object-contain"
-            />
-            <span className="font-display text-xl font-bold text-primary">
-              Thali Bharo
-            </span>
-          </button>
-          <nav className="hidden sm:flex items-center gap-1">
-            {(["home", "shelters", "stories", "donate"] as Section[]).map(
-              (s) => (
-                <button
-                  type="button"
-                  key={s}
-                  data-ocid={`nav.${s}.link`}
-                  onClick={() => setActiveSection(s)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-                    activeSection === s
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                  }`}
-                >
-                  {s}
-                </button>
-              ),
-            )}
-          </nav>
-          <Button
-            data-ocid="nav.donate.primary_button"
-            size="sm"
-            onClick={() => setActiveSection("donate")}
-            className="gap-2"
-          >
-            <Heart className="h-4 w-4" /> Donate
-          </Button>
+            key={src}
+            onClick={() => setActive(i)}
+            className={`rounded-full transition-all duration-300 ${
+              i === active
+                ? "w-8 h-2 bg-green-600"
+                : "w-2 h-2 bg-gray-400 hover:bg-green-500/60"
+            }`}
+            aria-label={`Slide ${i + 1}`}
+            data-ocid="hero.toggle"
+          />
+        ))}
+      </div>
+
+      <div className="absolute bottom-8 right-8 z-20 flex flex-col items-center gap-2 text-gray-400">
+        <span className="text-xs tracking-widest rotate-90 origin-center">
+          SCROLL
+        </span>
+        <div className="w-0.5 h-8 bg-gradient-to-b from-green-500/50 to-transparent" />
+      </div>
+    </section>
+  );
+}
+
+function CounterCard({
+  label,
+  target,
+  suffix,
+  active,
+}: {
+  label: string;
+  target: number;
+  suffix: string;
+  active: boolean;
+}) {
+  const count = useCountUp(target, active);
+  return (
+    <div className="glass-card p-8 text-center flex flex-col items-center gap-3">
+      <div className="counter-number">
+        {count.toLocaleString()}
+        {suffix}
+      </div>
+      <p className="font-body text-gray-500 text-sm tracking-wide uppercase">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function ImpactSection() {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.2 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const stats = [
+    { label: "Pets Fed", target: 5000, suffix: "+" },
+    { label: "Donors", target: 1200, suffix: "+" },
+    { label: "Meals Served", target: 18000, suffix: "+" },
+    { label: "Cities Reached", target: 12, suffix: "+" },
+  ];
+
+  return (
+    <section id="impact" className="py-24 px-6 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-16 section-hidden">
+          <p className="font-body text-green-600/80 tracking-[0.25em] uppercase text-sm mb-3">
+            Numbers That Matter
+          </p>
+          <h2 className="font-display text-5xl font-bold text-gray-800">
+            हमारा <span className="gold-text">असर</span>
+          </h2>
         </div>
-      </header>
+        <div
+          ref={ref}
+          className="grid grid-cols-2 md:grid-cols-4 gap-6 section-hidden"
+        >
+          {stats.map((s) => (
+            <CounterCard key={s.label} {...s} active={visible} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
-      <main className="flex-1">
-        <AnimatePresence mode="wait">
-          {activeSection === "home" && (
-            <motion.div
-              key="home"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.3 }}
+function HowToDonateSection() {
+  const steps = [
+    {
+      num: "1",
+      icon: "📱",
+      title: "QR Code Scan करें",
+      desc: "नीचे दिए गए Donate बटन पर click करें और PhonePe QR code scan करें।",
+    },
+    {
+      num: "2",
+      icon: "💰",
+      title: "Amount डालें और Pay करें",
+      desc: "अपनी इच्छा अनुसार कोई भी amount डालें। हर रुपया एक pet की थाली भरता है।",
+    },
+    {
+      num: "3",
+      icon: "✅",
+      title: "Confirmation मिलने पर Done!",
+      desc: "Payment confirmation मिलते ही आपका donation complete! आपकी kindness काम आई।",
+    },
+  ];
+
+  return (
+    <section className="py-24 px-6 bg-green-50">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-16 section-hidden">
+          <p className="font-body text-green-600/80 tracking-[0.25em] uppercase text-sm mb-3">
+            Simple Process
+          </p>
+          <h2 className="font-display text-5xl font-bold text-gray-800">
+            कैसे <span className="gold-text">Donate</span> करें?
+          </h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {steps.map((s, i) => (
+            <div
+              key={s.num}
+              className="glass-card p-8 section-hidden"
+              style={{ transitionDelay: `${i * 0.15}s` }}
             >
-              {/* Hero */}
-              <section className="relative overflow-hidden">
-                <div className="relative h-[520px] lg:h-[620px] w-full">
-                  {[
-                    {
-                      src: "/assets/generated/hero-dog.dim_1200x600.jpg",
-                      alt: "A happy dog ready to be fed",
-                    },
-                    {
-                      src: "/assets/generated/hero-cat.dim_1200x600.jpg",
-                      alt: "A cat eating from a bowl",
-                    },
-                    {
-                      src: "/assets/generated/hero-community.dim_1200x600.jpg",
-                      alt: "Community feeding animals",
-                    },
-                  ].map((img, i) => (
-                    <img
-                      key={img.src}
-                      src={img.src}
-                      alt={img.alt}
-                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-                      style={{ opacity: heroSlide === i ? 1 : 0 }}
-                    />
-                  ))}
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-
-                  <div className="relative z-10 h-full max-w-6xl mx-auto px-4 sm:px-6 flex items-center">
-                    <div className="max-w-xl">
-                      <Badge className="mb-4 bg-primary/90 text-white border-0 hover:bg-primary">
-                        🐾 Feeding Pets Across India
-                      </Badge>
-                      <h1 className="font-display text-5xl lg:text-6xl font-bold leading-tight text-white mb-6 drop-shadow-md">
-                        Every Bowl <br />
-                        <span className="text-amber-300">Filled with Love</span>
-                      </h1>
-                      <p className="text-lg text-white/85 mb-8 leading-relaxed drop-shadow">
-                        Thali Bharo connects generous donors with shelters and
-                        rescue animals across India. One small bag of food can
-                        change a pet's entire world.
-                      </p>
-                      <div className="flex flex-wrap gap-4">
-                        <Button
-                          data-ocid="hero.donate.primary_button"
-                          size="lg"
-                          onClick={() => setActiveSection("donate")}
-                          className="gap-2 shadow-warm bg-primary hover:bg-primary/90"
-                        >
-                          <Heart className="h-5 w-5" /> Donate Food Now
-                        </Button>
-                        <Button
-                          data-ocid="hero.shelters.secondary_button"
-                          variant="outline"
-                          size="lg"
-                          onClick={() => setActiveSection("shelters")}
-                          className="gap-2 bg-white/10 border-white/60 text-white hover:bg-white/20 hover:text-white backdrop-blur-sm"
-                        >
-                          <PawPrint className="h-5 w-5" /> See Shelters
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Slide indicators */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                    {[0, 1, 2].map((i) => (
-                      <button
-                        type="button"
-                        key={i}
-                        onClick={() => setHeroSlide(i)}
-                        className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${heroSlide === i ? "bg-white scale-125" : "bg-white/50"}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-              {/* Stats */}
-              <section className="py-16 px-4 bg-card">
-                <div className="max-w-6xl mx-auto">
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                    {STATS.map((stat, i) => (
-                      <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                      >
-                        <Card className="text-center border-border hover:shadow-warm transition-shadow">
-                          <CardContent className="pt-6">
-                            <stat.icon className="h-8 w-8 text-primary mx-auto mb-3" />
-                            <p className="font-display text-3xl font-bold text-foreground">
-                              {stat.value}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {stat.label}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-              {/* How It Works */}
-              <section className="py-16 px-4">
-                <div className="max-w-4xl mx-auto text-center">
-                  <h2 className="font-display text-4xl font-bold mb-4">
-                    How It Works
-                  </h2>
-                  <p className="text-muted-foreground mb-12 text-lg">
-                    Simple steps to make a real difference
-                  </p>
-                  <div className="grid md:grid-cols-3 gap-8">
-                    {[
-                      {
-                        step: "1",
-                        icon: Gift,
-                        title: "Choose & Donate",
-                        desc: "Pick an amount or a shelter, then donate online in minutes.",
-                      },
-                      {
-                        step: "2",
-                        icon: Package,
-                        title: "We Source the Food",
-                        desc: "We buy quality pet food in bulk and pack it for delivery.",
-                      },
-                      {
-                        step: "3",
-                        icon: PawPrint,
-                        title: "Pets Get Fed",
-                        desc: "Shelters receive the food and happy pets eat a warm meal.",
-                      },
-                    ].map((item) => (
-                      <div
-                        key={item.step}
-                        className="flex flex-col items-center"
-                      >
-                        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                          <item.icon className="h-7 w-7 text-primary" />
-                        </div>
-                        <span className="text-xs font-bold text-primary uppercase tracking-wider mb-2">
-                          Step {item.step}
-                        </span>
-                        <h3 className="font-display text-xl font-semibold mb-2">
-                          {item.title}
-                        </h3>
-                        <p className="text-muted-foreground text-sm leading-relaxed">
-                          {item.desc}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-              {/* Stories teaser */}
-              <section className="py-16 px-4 bg-accent/40">
-                <div className="max-w-6xl mx-auto">
-                  <div className="flex items-center justify-between mb-10">
-                    <div>
-                      <h2 className="font-display text-4xl font-bold">
-                        Stories of Hope
-                      </h2>
-                      <p className="text-muted-foreground mt-2">
-                        Pets whose lives you helped change
-                      </p>
-                    </div>
-                    <Button
-                      data-ocid="home.stories.secondary_button"
-                      variant="outline"
-                      onClick={() => setActiveSection("stories")}
-                      className="gap-2 hidden sm:flex"
-                    >
-                      All Stories <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="grid md:grid-cols-3 gap-6">
-                    {STORIES.map((story, i) => (
-                      <motion.div
-                        key={story.name}
-                        initial={{ opacity: 0, scale: 0.96 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.1 }}
-                      >
-                        <Card
-                          className={`${story.color} border-0 shadow-xs hover:shadow-warm transition-shadow overflow-hidden`}
-                        >
-                          <div className="overflow-hidden">
-                            <img
-                              src={story.image}
-                              alt={story.name}
-                              className="object-cover h-48 w-full rounded-t-xl"
-                            />
-                          </div>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="font-display">
-                              {story.name}
-                            </CardTitle>
-                            <CardDescription>
-                              {story.breed} · {story.shelter}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                              {story.story}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-              {/* FAQ */}
-              <section className="py-16 px-4">
-                <div className="max-w-3xl mx-auto">
-                  <h2 className="font-display text-4xl font-bold text-center mb-10">
-                    Frequently Asked Questions
-                  </h2>
-                  <div className="space-y-3" data-ocid="faq.list">
-                    {FAQ.map((item, i) => (
-                      <div
-                        key={item.q}
-                        className="border border-border rounded-lg overflow-hidden"
-                      >
-                        <button
-                          type="button"
-                          data-ocid={`faq.item.${i + 1}`}
-                          className="w-full flex items-center justify-between px-5 py-4 text-left font-medium hover:bg-accent/50 transition-colors"
-                          onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                        >
-                          {item.q}
-                          <ChevronDown
-                            className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${
-                              openFaq === i ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-                        <AnimatePresence>
-                          {openFaq === i && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              <div className="px-5 pb-4 text-muted-foreground text-sm leading-relaxed border-t border-border pt-3">
-                                {item.a}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-              {/* CTA Banner */}
-              <section className="py-20 px-4 bg-primary text-primary-foreground">
-                <div className="max-w-3xl mx-auto text-center">
-                  <h2 className="font-display text-4xl font-bold mb-4">
-                    A Hungry Pet Can't Wait
-                  </h2>
-                  <p className="text-primary-foreground/80 text-lg mb-8">
-                    Your donation today means a full bowl tomorrow. Every rupee
-                    counts.
-                  </p>
-                  <Button
-                    data-ocid="cta.donate.primary_button"
-                    size="lg"
-                    variant="secondary"
-                    onClick={() => setActiveSection("donate")}
-                    className="gap-2 font-semibold"
-                  >
-                    <Heart className="h-5 w-5" /> Donate Now
-                  </Button>
-                </div>
-              </section>
-            </motion.div>
-          )}
-
-          {activeSection === "donate" && (
-            <motion.div
-              key="donate"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.3 }}
-              className="py-16 px-4"
-            >
-              <div className="max-w-2xl mx-auto">
-                <div className="text-center mb-10">
-                  <h1 className="font-display text-4xl font-bold mb-3">
-                    Make a Donation
-                  </h1>
-                  <p className="text-muted-foreground text-lg">
-                    Your kindness fills bowls for many pets, one meal at a time.
-                  </p>
-                </div>
-
-                <Card className="shadow-warm relative overflow-hidden">
-                  <CardContent className="p-8">
-                    {/* Processing overlay */}
-                    <AnimatePresence>
-                      {donationStep === "processing" && (
-                        <motion.div
-                          key="processing-overlay"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="absolute inset-0 z-10 bg-card/95 backdrop-blur-sm flex flex-col items-center justify-center rounded-xl gap-6"
-                          data-ocid="donation.loading_state"
-                        >
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{
-                              duration: 1.5,
-                              repeat: Number.POSITIVE_INFINITY,
-                              ease: "linear",
-                            }}
-                            className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary"
-                          />
-                          <div className="space-y-3 text-center">
-                            {PROCESSING_STEPS.map((step, i) => (
-                              <motion.div
-                                key={step.label}
-                                initial={{ opacity: 0, x: -16 }}
-                                animate={{
-                                  opacity:
-                                    processingStep > i
-                                      ? 1
-                                      : processingStep === i
-                                        ? 0.5
-                                        : 0.2,
-                                  x: 0,
-                                }}
-                                transition={{ delay: i * 0.1 }}
-                                className="flex items-center gap-3 justify-center"
-                              >
-                                {processingStep > i ? (
-                                  <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
-                                ) : (
-                                  <span className="text-lg flex-shrink-0">
-                                    {step.icon}
-                                  </span>
-                                )}
-                                <span
-                                  className={`text-sm font-medium ${
-                                    processingStep > i
-                                      ? "text-green-600 line-through"
-                                      : processingStep === i
-                                        ? "text-foreground"
-                                        : "text-muted-foreground"
-                                  }`}
-                                >
-                                  {step.label}
-                                </span>
-                              </motion.div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    <form
-                      onSubmit={handleDonate}
-                      className="space-y-6"
-                      data-ocid="donation.form"
-                    >
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="donorName">Your Name *</Label>
-                          <Input
-                            id="donorName"
-                            data-ocid="donation.name.input"
-                            placeholder="Aarav Kumar"
-                            value={donorName}
-                            onChange={(e) => setDonorName(e.target.value)}
-                            disabled={donationStep !== "form"}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="donorEmail">Email Address *</Label>
-                          <Input
-                            id="donorEmail"
-                            type="email"
-                            data-ocid="donation.email.input"
-                            placeholder="aarav@example.com"
-                            value={donorEmail}
-                            onChange={(e) => setDonorEmail(e.target.value)}
-                            disabled={donationStep !== "form"}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Donation Amount (₹) *</Label>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          {["100", "250", "500", "1000", "2500"].map((amt) => (
-                            <button
-                              key={amt}
-                              type="button"
-                              data-ocid="donation.amount.toggle"
-                              onClick={() =>
-                                donationStep === "form" &&
-                                setDonationAmount(amt)
-                              }
-                              disabled={donationStep !== "form"}
-                              className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                                donationAmount === amt
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "border-border hover:border-primary hover:bg-accent"
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                              ₹{amt}
-                            </button>
-                          ))}
-                        </div>
-                        <Input
-                          data-ocid="donation.amount.input"
-                          type="number"
-                          placeholder="Or enter custom amount"
-                          value={donationAmount}
-                          onChange={(e) => setDonationAmount(e.target.value)}
-                          disabled={donationStep !== "form"}
-                          min="1"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Shelter Preference</Label>
-                        <Select
-                          value={selectedShelter}
-                          onValueChange={setSelectedShelter}
-                          disabled={donationStep !== "form"}
-                        >
-                          <SelectTrigger data-ocid="donation.shelter.select">
-                            <SelectValue placeholder="Any shelter (we'll allocate where needed)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="any">
-                              Any shelter (we'll allocate where needed)
-                            </SelectItem>
-                            {SHELTERS.map((s) => (
-                              <SelectItem key={s.name} value={s.name}>
-                                {s.name} — {s.city}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="donorMessage">Message (optional)</Label>
-                        <Textarea
-                          id="donorMessage"
-                          data-ocid="donation.message.textarea"
-                          placeholder="A note of encouragement for the shelter team..."
-                          value={donorMessage}
-                          onChange={(e) => setDonorMessage(e.target.value)}
-                          disabled={donationStep !== "form"}
-                          rows={3}
-                        />
-                      </div>
-
-                      {donationStep === "form" && (
-                        <Button
-                          type="submit"
-                          data-ocid="donation.submit.primary_button"
-                          size="lg"
-                          className="w-full gap-2"
-                          disabled={
-                            !donorName || !donorEmail || !donationAmount
-                          }
-                        >
-                          <Heart className="h-5 w-5" /> Donate with Kindness
-                        </Button>
-                      )}
-
-                      {donationStep === "qr" && (
-                        <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                          <p className="text-sm text-green-700 font-medium">
-                            Details confirmed! Scan the QR below to complete
-                            your payment.
-                          </p>
-                        </div>
-                      )}
-                    </form>
-                  </CardContent>
-                </Card>
-
-                <div className="mt-6 flex items-center justify-center gap-6 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Star className="h-4 w-4 text-primary" /> 4.9 star rated
-                    charity
-                  </span>
-                  <Separator orientation="vertical" className="h-4" />
-                  <span>100% goes to pet food</span>
-                  <Separator orientation="vertical" className="h-4" />
-                  <span>Instant confirmation</span>
-                </div>
-
-                {/* PhonePe QR Payment Section */}
-                <div className="mt-10" ref={qrRef}>
-                  <div className="relative flex items-center gap-4 my-6">
-                    <Separator className="flex-1" />
-                    <span className="text-sm text-muted-foreground font-medium px-2">
-                      {donationStep === "qr"
-                        ? "SCAN TO COMPLETE PAYMENT"
-                        : "OR PAY DIRECTLY"}
-                    </span>
-                    <Separator className="flex-1" />
-                  </div>
-
-                  <AnimatePresence mode="wait">
-                    {donationStep === "qr" ? (
-                      <motion.div
-                        key="qr-highlighted"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{
-                          duration: 0.4,
-                          type: "spring",
-                          bounce: 0.3,
-                        }}
-                      >
-                        {/* Attention banner */}
-                        <motion.div
-                          initial={{ opacity: 0, y: -8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.2 }}
-                          className="mb-4 flex items-center justify-center gap-2 p-3 bg-amber-50 border border-amber-300 rounded-xl"
-                          data-ocid="qr.success_state"
-                        >
-                          <span className="text-xl">🎉</span>
-                          <p className="font-semibold text-amber-800 text-center">
-                            Scan &amp; Pay to Complete Your Donation of ₹
-                            {submittedAmount}
-                          </p>
-                        </motion.div>
-
-                        <Card
-                          className="border-4 border-primary shadow-[0_0_32px_rgba(var(--primary-rgb),0.35)] bg-gradient-to-b from-purple-50/80 to-white relative overflow-hidden"
-                          data-ocid="phonepe.panel"
-                          style={{
-                            animation: "qr-pulse 2s ease-in-out infinite",
-                          }}
-                        >
-                          {/* Pulsing ring */}
-                          <div
-                            className="absolute inset-0 rounded-xl border-4 border-primary/40 animate-ping pointer-events-none"
-                            style={{ animationDuration: "2s" }}
-                          />
-
-                          <CardHeader className="text-center pb-2">
-                            <div className="flex items-center justify-center gap-2 mb-1">
-                              <div className="w-8 h-8 rounded-full bg-[#5f259f] flex items-center justify-center">
-                                <Smartphone className="h-4 w-4 text-white" />
-                              </div>
-                              <CardTitle className="font-display text-xl text-[#5f259f]">
-                                PhonePe
-                              </CardTitle>
-                            </div>
-                            <CardDescription className="text-sm font-medium">
-                              Scan &amp; Pay Using PhonePe App
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="flex flex-col items-center gap-4 pb-8">
-                            <motion.div
-                              animate={{
-                                boxShadow: [
-                                  "0 0 0px rgba(239,68,68,0.4)",
-                                  "0 0 24px rgba(239,68,68,0.7)",
-                                  "0 0 0px rgba(239,68,68,0.4)",
-                                ],
-                              }}
-                              transition={{
-                                duration: 2,
-                                repeat: Number.POSITIVE_INFINITY,
-                                ease: "easeInOut",
-                              }}
-                              className="relative rounded-full"
-                            >
-                              <img
-                                src="/assets/uploads/satyam_qr-019d2e67-fed3-749c-aff6-2a34a1a0e216-1.jpg"
-                                alt="PhonePe QR Code — Satyam Kumar"
-                                data-ocid="phonepe.canvas_target"
-                                className="w-96 h-96 object-contain shadow-xl bg-white p-2 rounded-xl"
-                              />
-                            </motion.div>
-                            <div className="text-center space-y-1">
-                              <div className="flex items-center justify-center gap-2">
-                                <QrCode className="h-4 w-4 text-[#5f259f]" />
-                                <p className="font-semibold text-foreground">
-                                  Satyam Kumar
-                                </p>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Open PhonePe → Scan QR → Enter ₹
-                                {submittedAmount} → Pay
-                              </p>
-                              <Badge
-                                variant="secondary"
-                                className="text-xs mt-2"
-                              >
-                                🔒 Secure UPI Payment
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <div className="mt-6 text-center">
-                          <Button
-                            data-ocid="donation.reset.secondary_button"
-                            variant="outline"
-                            onClick={handleReset}
-                            className="gap-2"
-                          >
-                            <RefreshCcw className="h-4 w-4" /> Start New
-                            Donation
-                          </Button>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="qr-default"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ delay: 0.2 }}
-                      >
-                        <Card
-                          className="border-2 border-primary/20 bg-gradient-to-b from-purple-50/60 to-white shadow-warm"
-                          data-ocid="phonepe.panel"
-                        >
-                          <CardHeader className="text-center pb-2">
-                            <div className="flex items-center justify-center gap-2 mb-1">
-                              <div className="w-8 h-8 rounded-full bg-[#5f259f] flex items-center justify-center">
-                                <Smartphone className="h-4 w-4 text-white" />
-                              </div>
-                              <CardTitle className="font-display text-xl text-[#5f259f]">
-                                PhonePe
-                              </CardTitle>
-                            </div>
-                            <CardDescription className="text-sm font-medium">
-                              Scan &amp; Pay Using PhonePe App
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="flex flex-col items-center gap-4 pb-8">
-                            <div className="relative">
-                              <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-[#5f259f]/30 to-primary/20 blur-sm" />
-                              <img
-                                src="/assets/uploads/satyam_qr-019d2e67-fed3-749c-aff6-2a34a1a0e216-1.jpg"
-                                alt="PhonePe QR Code — Satyam Kumar"
-                                data-ocid="phonepe.canvas_target"
-                                className="relative w-96 h-96 object-contain shadow-xl bg-white p-2 rounded-xl"
-                              />
-                            </div>
-                            <div className="text-center space-y-1">
-                              <div className="flex items-center justify-center gap-2">
-                                <QrCode className="h-4 w-4 text-[#5f259f]" />
-                                <p className="font-semibold text-foreground">
-                                  Satyam Kumar
-                                </p>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Open PhonePe → Scan QR → Enter amount → Pay
-                              </p>
-                              <Badge
-                                variant="secondary"
-                                className="text-xs mt-2"
-                              >
-                                🔒 Secure UPI Payment
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+              <div className="flex items-center gap-4 mb-5">
+                <div className="step-number">{s.num}</div>
+                <span className="text-3xl">{s.icon}</span>
               </div>
-            </motion.div>
-          )}
-
-          {activeSection === "shelters" && (
-            <motion.div
-              key="shelters"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.3 }}
-              className="py-16 px-4"
-            >
-              <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-12">
-                  <h1 className="font-display text-4xl font-bold mb-3">
-                    Partner Shelters
-                  </h1>
-                  <p className="text-muted-foreground text-lg">
-                    These shelters are waiting for your generosity right now.
-                  </p>
-                </div>
-                <div
-                  className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-                  data-ocid="shelters.list"
-                >
-                  {SHELTERS.map((shelter, i) => (
-                    <motion.div
-                      key={shelter.name}
-                      data-ocid={`shelters.item.${i + 1}`}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.07 }}
-                    >
-                      <Card className="h-full hover:shadow-warm transition-shadow border-border">
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <CardTitle className="font-display text-lg">
-                                {shelter.name}
-                              </CardTitle>
-                              <CardDescription className="mt-1">
-                                {shelter.city}
-                              </CardDescription>
-                            </div>
-                            <Badge
-                              variant="secondary"
-                              className="text-xs shrink-0"
-                            >
-                              {shelter.animals} animals
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                              Current Needs
-                            </p>
-                            <p className="text-sm font-medium">
-                              {shelter.needs}
-                            </p>
-                          </div>
-                          <Button
-                            data-ocid={`shelters.donate.button.${i + 1}`}
-                            size="sm"
-                            className="w-full gap-2"
-                            onClick={() => {
-                              setSelectedShelter(shelter.name);
-                              setActiveSection("donate");
-                            }}
-                          >
-                            <Heart className="h-4 w-4" /> Donate to{" "}
-                            {shelter.name.split(" ")[0]}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {activeSection === "stories" && (
-            <motion.div
-              key="stories"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.3 }}
-              className="py-16 px-4"
-            >
-              <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-12">
-                  <h1 className="font-display text-4xl font-bold mb-3">
-                    Stories of Hope
-                  </h1>
-                  <p className="text-muted-foreground text-lg">
-                    Real pets whose lives you helped change.
-                  </p>
-                </div>
-                <div
-                  className="grid md:grid-cols-3 gap-8"
-                  data-ocid="stories.list"
-                >
-                  {STORIES.map((story, i) => (
-                    <motion.div
-                      key={story.name}
-                      data-ocid={`stories.item.${i + 1}`}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.12 }}
-                    >
-                      <Card
-                        className={`${story.color} border-0 shadow-xs hover:shadow-warm transition-shadow h-full overflow-hidden`}
-                      >
-                        <div className="overflow-hidden">
-                          <img
-                            src={story.image}
-                            alt={story.name}
-                            className="object-cover h-48 w-full rounded-t-xl"
-                          />
-                        </div>
-                        <CardHeader>
-                          <CardTitle className="font-display text-2xl">
-                            {story.name}
-                          </CardTitle>
-                          <CardDescription className="text-sm">
-                            {story.breed}
-                          </CardDescription>
-                          <Badge
-                            variant="outline"
-                            className="w-fit text-xs mt-1"
-                          >
-                            {story.shelter}
-                          </Badge>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-muted-foreground leading-relaxed">
-                            {story.story}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-
-                <div className="text-center mt-12">
-                  <Button
-                    data-ocid="stories.donate.primary_button"
-                    size="lg"
-                    onClick={() => setActiveSection("donate")}
-                    className="gap-2"
-                  >
-                    <Heart className="h-5 w-5" /> Help Write the Next Story
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-card border-t border-border py-10 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <img
-                src="/assets/generated/kibble-kindness-logo-transparent.dim_200x200.png"
-                alt="Thali Bharo"
-                className="h-8 w-8 object-contain"
-              />
-              <span className="font-display text-xl font-bold text-primary">
-                Thali Bharo
-              </span>
+              <h3 className="font-display text-xl font-semibold text-green-700 mb-3">
+                {s.title}
+              </h3>
+              <p className="font-body text-gray-500 leading-relaxed text-sm">
+                {s.desc}
+              </p>
             </div>
-            <nav className="flex gap-6 text-sm text-muted-foreground">
-              <button
-                type="button"
-                data-ocid="footer.home.link"
-                onClick={() => setActiveSection("home")}
-                className="hover:text-foreground transition-colors"
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type DonateState = "idle" | "loading" | "qr";
+
+const QR_TIMEOUT_SECONDS = 8 * 60; // 8 minutes
+
+function formatTime(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function DonateSection() {
+  const [state, setState] = useState<DonateState>("idle");
+  const [timeLeft, setTimeLeft] = useState(QR_TIMEOUT_SECONDS);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const handleDonate = useCallback(() => {
+    setState("loading");
+    setTimeout(() => {
+      setState("qr");
+      setTimeLeft(QR_TIMEOUT_SECONDS);
+    }, 2000);
+  }, []);
+
+  useEffect(() => {
+    if (state === "qr") {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearTimer();
+            setState("idle");
+            return QR_TIMEOUT_SECONDS;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      clearTimer();
+    }
+    return clearTimer;
+  }, [state, clearTimer]);
+
+  const handleBack = useCallback(() => {
+    clearTimer();
+    setState("idle");
+    setTimeLeft(QR_TIMEOUT_SECONDS);
+  }, [clearTimer]);
+
+  // color: green when > 2min, amber when 1-2min, red when < 1min
+  const timerColor =
+    timeLeft > 120
+      ? "text-green-600"
+      : timeLeft > 60
+        ? "text-amber-500"
+        : "text-red-500";
+
+  return (
+    <section id="donate" className="py-24 px-6 bg-white">
+      <div className="max-w-3xl mx-auto text-center">
+        <div className="section-hidden">
+          <p className="font-body text-green-600/80 tracking-[0.25em] uppercase text-sm mb-3">
+            Make A Difference
+          </p>
+          <h2 className="font-display text-5xl font-bold text-gray-800 mb-6">
+            <span className="gold-text">Donate</span> करें
+          </h2>
+          <p className="font-body text-gray-500 mb-10 text-lg">
+            एक QR scan से आप किसी pet की जिंदगी बदल सकते हैं।
+          </p>
+        </div>
+
+        {state === "idle" && (
+          <div className="section-hidden">
+            <button
+              type="button"
+              onClick={handleDonate}
+              className="btn-gold px-14 py-5 text-xl"
+              data-ocid="donate.primary_button"
+            >
+              Donate With Kindness 🐾
+            </button>
+          </div>
+        )}
+
+        {state === "loading" && (
+          <div
+            className="glass-card p-12 flex flex-col items-center gap-6"
+            data-ocid="donate.loading_state"
+          >
+            <div className="text-5xl animate-pulse">🐾</div>
+            <p className="font-display text-xl text-green-700">
+              Processing your kindness...
+            </p>
+            <div className="flex gap-3">
+              <div className="loading-dot" />
+              <div className="loading-dot" />
+              <div className="loading-dot" />
+            </div>
+          </div>
+        )}
+
+        {state === "qr" && (
+          <div
+            className="glass-card p-10 flex flex-col items-center gap-6"
+            data-ocid="donate.success_state"
+          >
+            <div className="text-center mb-2">
+              <p className="font-display text-2xl text-green-700 mb-2">
+                Scan to Donate via PhonePe
+              </p>
+              <p className="font-body text-gray-500 text-sm">Satyam Kumar</p>
+            </div>
+
+            {/* Countdown Timer */}
+            <div className="flex flex-col items-center gap-1">
+              <p className="font-body text-xs text-gray-400 uppercase tracking-widest">
+                QR बंद होने में
+              </p>
+              <span
+                className={`font-display text-4xl font-bold tabular-nums ${timerColor}`}
               >
-                Home
-              </button>
-              <button
-                type="button"
-                data-ocid="footer.shelters.link"
-                onClick={() => setActiveSection("shelters")}
-                className="hover:text-foreground transition-colors"
-              >
-                Shelters
-              </button>
-              <button
-                type="button"
-                data-ocid="footer.stories.link"
-                onClick={() => setActiveSection("stories")}
-                className="hover:text-foreground transition-colors"
-              >
-                Stories
-              </button>
-              <button
-                type="button"
-                data-ocid="footer.donate.link"
-                onClick={() => setActiveSection("donate")}
-                className="hover:text-foreground transition-colors"
-              >
-                Donate
-              </button>
-            </nav>
-            <p className="text-sm text-muted-foreground text-center">
-              © {new Date().getFullYear()} Thali Bharo. Built with{" "}
-              <Heart className="inline h-3 w-3 text-primary" /> using{" "}
-              <a
-                href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-primary transition-colors"
-              >
-                caffeine.ai
-              </a>
+                {formatTime(timeLeft)}
+              </span>
+              {/* Progress bar */}
+              <div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full transition-all duration-1000"
+                  style={{
+                    width: `${(timeLeft / QR_TIMEOUT_SECONDS) * 100}%`,
+                    backgroundColor:
+                      timeLeft > 120
+                        ? "#16a34a"
+                        : timeLeft > 60
+                          ? "#f59e0b"
+                          : "#ef4444",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="qr-glow overflow-hidden">
+              <img
+                src="/assets/uploads/satyam_qr-019d2e67-fed3-749c-aff6-2a34a1a0e216-1.jpg"
+                alt="PhonePe QR Code — Satyam Kumar"
+                width={600}
+                height={600}
+                className="block max-w-full"
+                style={{ width: "min(600px, 100%)", height: "auto" }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleBack}
+              className="font-body text-sm text-gray-400 hover:text-green-600 transition-colors mt-2"
+              data-ocid="donate.secondary_button"
+            >
+              ← Back
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TeamSection() {
+  const members = [
+    {
+      name: "Satyam Kumar",
+      role: "Founder & Lead",
+      initials: "SK",
+    },
+    {
+      name: "Priya Sharma",
+      role: "Volunteer Lead",
+      initials: "PS",
+    },
+    {
+      name: "Rahul Verma",
+      role: "Community Outreach",
+      initials: "RV",
+    },
+    {
+      name: "Ankit Gupta",
+      role: "Social Media",
+      initials: "AG",
+    },
+    {
+      name: "Neha Joshi",
+      role: "Donations Manager",
+      initials: "NJ",
+    },
+  ];
+
+  const colors = [
+    "linear-gradient(135deg, oklch(52% 0.17 145), oklch(44% 0.16 148))",
+    "linear-gradient(135deg, oklch(55% 0.15 200), oklch(48% 0.17 210))",
+    "linear-gradient(135deg, oklch(50% 0.18 160), oklch(43% 0.16 155))",
+    "linear-gradient(135deg, oklch(54% 0.14 175), oklch(47% 0.16 180))",
+    "linear-gradient(135deg, oklch(48% 0.19 135), oklch(42% 0.17 140))",
+  ];
+
+  return (
+    <section id="team" className="py-24 px-6 bg-green-50">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-16 section-hidden">
+          <p className="font-body text-green-600/80 tracking-[0.25em] uppercase text-sm mb-3">
+            The People Behind
+          </p>
+          <h2 className="font-display text-5xl font-bold text-gray-800">
+            हमारी <span className="gold-text">Team</span>
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          {members.map((m, i) => (
+            <div
+              key={m.name}
+              className="glass-card p-6 flex flex-col items-center text-center section-hidden"
+              style={{ transitionDelay: `${i * 0.1}s` }}
+              data-ocid={`team.card.${i + 1}`}
+            >
+              <div className="relative mb-4">
+                <div
+                  className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-bold text-white"
+                  style={{ background: colors[i] }}
+                >
+                  {m.initials}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-600 flex items-center justify-center text-xs font-bold text-white">
+                  ✦
+                </div>
+              </div>
+              <h3 className="font-display text-base font-semibold gold-text mb-1">
+                {m.name}
+              </h3>
+              <p className="font-body text-gray-500 text-xs tracking-wide uppercase">
+                {m.role}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TestimonialsSection() {
+  const reviews = [
+    {
+      quote:
+        "थाली Bharo ne mere aas-paas ke pets ki zindagi badal di. Itna aasan donate karna!",
+      name: "Anita S.",
+      city: "Delhi",
+      initials: "AS",
+    },
+    {
+      quote:
+        "QR code se ek minute mein payment ho gayi. Bahut acha kaam kar rahe hain!",
+      name: "Mohit R.",
+      city: "Mumbai",
+      initials: "MR",
+    },
+    {
+      quote: "Sachchi pehel. Mere pet ko bhi khana milta hai inke zariye.",
+      name: "Sunita K.",
+      city: "Jaipur",
+      initials: "SK",
+    },
+  ];
+
+  return (
+    <section className="py-24 px-6 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-16 section-hidden">
+          <p className="font-body text-green-600/80 tracking-[0.25em] uppercase text-sm mb-3">
+            Real Stories
+          </p>
+          <h2 className="font-display text-5xl font-bold text-gray-800">
+            Donors की <span className="gold-text">बात</span>
+          </h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {reviews.map((r, i) => (
+            <div
+              key={r.name}
+              className="glass-card p-8 flex flex-col gap-5 section-hidden"
+              style={{ transitionDelay: `${i * 0.15}s` }}
+              data-ocid={`testimonials.card.${i + 1}`}
+            >
+              <div className="star-rating">★★★★★</div>
+              <p className="font-body text-gray-600 italic leading-relaxed text-sm flex-1">
+                &ldquo;{r.quote}&rdquo;
+              </p>
+              <div className="flex items-center gap-3 pt-2 border-t border-green-100">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(52% 0.17 145), oklch(44% 0.16 148))",
+                  }}
+                >
+                  {r.initials}
+                </div>
+                <div>
+                  <p className="font-body text-green-700 text-sm font-semibold">
+                    {r.name}
+                  </p>
+                  <p className="font-body text-gray-400 text-xs">{r.city}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  const year = new Date().getFullYear();
+  const links = [
+    { label: "Home", href: "#home" },
+    { label: "Impact", href: "#impact" },
+    { label: "Donate", href: "#donate" },
+    { label: "Team", href: "#team" },
+  ];
+
+  return (
+    <footer className="bg-green-700 pt-16 pb-8 px-6">
+      <div
+        className="mb-12"
+        style={{
+          height: "1px",
+          background:
+            "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
+        }}
+      />
+      <div className="max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-12 mb-12">
+          <div>
+            <h3 className="font-display font-brand text-3xl font-bold text-white mb-4">
+              थाली Bharo
+            </h3>
+            <p className="font-body text-green-200 text-sm leading-relaxed italic">
+              &ldquo;Ek thali se shuru hoti hai ummeed.&rdquo;
+            </p>
+            <p className="font-body text-green-300/60 text-xs mt-2">
+              Hope begins with one plate.
+            </p>
+          </div>
+          <div>
+            <h4 className="font-display text-sm uppercase tracking-widest text-green-200 mb-5">
+              Quick Links
+            </h4>
+            <ul className="space-y-3">
+              {links.map((l) => (
+                <li key={l.href}>
+                  <a
+                    href={l.href}
+                    className="font-body text-green-100 hover:text-white transition-colors text-sm"
+                    data-ocid="footer.link"
+                  >
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-display text-sm uppercase tracking-widest text-green-200 mb-5">
+              Our Mission
+            </h4>
+            <p className="font-body text-green-100 text-sm leading-relaxed">
+              हर जानवर को प्यार और खाना मिलना चाहिए। थाली Bharo इसी सोच के साथ काम
+              करता है।
             </p>
           </div>
         </div>
-      </footer>
+        <div
+          className="mb-8"
+          style={{
+            height: "1px",
+            background:
+              "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+          }}
+        />
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="font-body text-green-200 text-xs">
+            © {year} थाली Bharo. Sabhi adhikar surakshit.
+          </p>
+          <p className="font-body text-green-300/60 text-xs">
+            Built with ❤️ using{" "}
+            <a
+              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-green-200 transition-colors"
+            >
+              caffeine.ai
+            </a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* ============================================================
+   APP ROOT
+   ============================================================ */
+
+export default function App() {
+  useScrollSpy();
+
+  return (
+    <div className="min-h-screen bg-[#fffdf0] text-gray-800">
+      <Navbar />
+      <main>
+        <HeroSection />
+        <ImpactSection />
+        <HowToDonateSection />
+        <DonateSection />
+        <TeamSection />
+        <TestimonialsSection />
+      </main>
+      <Footer />
     </div>
   );
 }

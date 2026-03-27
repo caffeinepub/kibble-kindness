@@ -16,8 +16,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['Fraunces', 'Georgia', 'serif'],
-        body: ['Figtree', 'system-ui', 'sans-serif'],
+        display: ['Playfair Display', 'Georgia', 'serif'],
+        body: ['Satoshi', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "oklch(var(--border))",
@@ -53,32 +53,16 @@ export default {
           DEFAULT: "oklch(var(--card))",
           foreground: "oklch(var(--card-foreground))",
         },
-        chart: {
-          1: "oklch(var(--chart-1))",
-          2: "oklch(var(--chart-2))",
-          3: "oklch(var(--chart-3))",
-          4: "oklch(var(--chart-4))",
-          5: "oklch(var(--chart-5))",
-        },
-        sidebar: {
-          DEFAULT: "oklch(var(--sidebar))",
-          foreground: "oklch(var(--sidebar-foreground))",
-          primary: "oklch(var(--sidebar-primary))",
-          "primary-foreground": "oklch(var(--sidebar-primary-foreground))",
-          accent: "oklch(var(--sidebar-accent))",
-          "accent-foreground": "oklch(var(--sidebar-accent-foreground))",
-          border: "oklch(var(--sidebar-border))",
-          ring: "oklch(var(--sidebar-ring))",
+        gold: {
+          DEFAULT: "oklch(72% 0.18 85)",
+          light: "oklch(82% 0.16 85)",
+          dark: "oklch(58% 0.18 75)",
         },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-      },
-      boxShadow: {
-        xs: "0 1px 2px 0 rgba(0,0,0,0.05)",
-        warm: "0 4px 24px 0 oklch(0.55 0.16 48 / 0.12)",
       },
       keyframes: {
         "accordion-down": {
@@ -89,10 +73,35 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        fadeIn: {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        slideUp: {
+          from: { opacity: "0", transform: "translateY(30px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        countUp: {
+          from: { opacity: "0", transform: "scale(0.8)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fadeIn 0.6s ease forwards",
+        "slide-up": "slideUp 0.6s ease forwards",
+        "count-up": "countUp 0.4s ease forwards",
+        shimmer: "shimmer 2s linear infinite",
+      },
+      boxShadow: {
+        gold: "0 0 20px rgba(251, 191, 36, 0.25), 0 0 40px rgba(251, 191, 36, 0.1)",
+        "gold-lg": "0 0 40px rgba(251, 191, 36, 0.35), 0 0 80px rgba(251, 191, 36, 0.15)",
+        glass: "0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
       },
     },
   },
