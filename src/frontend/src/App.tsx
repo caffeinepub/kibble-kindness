@@ -151,7 +151,15 @@ export default function App() {
   const [donationStep, setDonationStep] = useState<DonationStep>("form");
   const [processingStep, setProcessingStep] = useState(0);
   const [submittedAmount, setSubmittedAmount] = useState("");
+  const [heroSlide, setHeroSlide] = useState(0);
   const qrRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroSlide((prev) => (prev + 1) % 3);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleDonate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,11 +261,28 @@ export default function App() {
               {/* Hero */}
               <section className="relative overflow-hidden">
                 <div className="relative h-[520px] lg:h-[620px] w-full">
-                  <img
-                    src="/assets/generated/hero-dog.dim_1200x600.jpg"
-                    alt="A happy dog ready to be fed"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
+                  {[
+                    {
+                      src: "/assets/generated/hero-dog.dim_1200x600.jpg",
+                      alt: "A happy dog ready to be fed",
+                    },
+                    {
+                      src: "/assets/generated/hero-cat.dim_1200x600.jpg",
+                      alt: "A cat eating from a bowl",
+                    },
+                    {
+                      src: "/assets/generated/hero-community.dim_1200x600.jpg",
+                      alt: "Community feeding animals",
+                    },
+                  ].map((img, i) => (
+                    <img
+                      key={img.src}
+                      src={img.src}
+                      alt={img.alt}
+                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                      style={{ opacity: heroSlide === i ? 1 : 0 }}
+                    />
+                  ))}
                   <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
@@ -295,6 +320,17 @@ export default function App() {
                         </Button>
                       </div>
                     </div>
+                  </div>
+                  {/* Slide indicators */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                    {[0, 1, 2].map((i) => (
+                      <button
+                        type="button"
+                        key={i}
+                        onClick={() => setHeroSlide(i)}
+                        className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${heroSlide === i ? "bg-white scale-125" : "bg-white/50"}`}
+                      />
+                    ))}
                   </div>
                 </div>
               </section>
