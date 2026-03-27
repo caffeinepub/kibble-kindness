@@ -67,7 +67,7 @@ const STORIES = [
     breed: "Indian Pariah Dog",
     shelter: "Street Angels, Bengaluru",
     story:
-      "Raja patrolled the streets hungry for years. Community food drives powered by Kibble Kindness changed his life — now he sleeps warm and full every night.",
+      "Raja patrolled the streets hungry for years. Community food drives powered by Thali Bharo changed his life — now he sleeps warm and full every night.",
     image: "/assets/generated/story-raja.dim_400x300.jpg",
     color: "bg-yellow-50",
   },
@@ -203,11 +203,11 @@ export default function App() {
           >
             <img
               src="/assets/generated/kibble-kindness-logo-transparent.dim_200x200.png"
-              alt="Kibble Kindness Logo"
+              alt="Thali Bharo Logo"
               className="h-10 w-10 object-contain"
             />
             <span className="font-display text-xl font-bold text-primary">
-              Kibble Kindness
+              Thali Bharo
             </span>
           </button>
           <nav className="hidden sm:flex items-center gap-1">
@@ -271,9 +271,9 @@ export default function App() {
                         <span className="text-amber-300">Filled with Love</span>
                       </h1>
                       <p className="text-lg text-white/85 mb-8 leading-relaxed drop-shadow">
-                        Kibble Kindness connects generous donors with shelters
-                        and rescue animals across India. One small bag of food
-                        can change a pet's entire world.
+                        Thali Bharo connects generous donors with shelters and
+                        rescue animals across India. One small bag of food can
+                        change a pet's entire world.
                       </p>
                       <div className="flex flex-wrap gap-4">
                         <Button
@@ -800,9 +800,9 @@ export default function App() {
                             <motion.div
                               animate={{
                                 boxShadow: [
-                                  "0 0 0px rgba(95,37,159,0.3)",
-                                  "0 0 24px rgba(95,37,159,0.6)",
-                                  "0 0 0px rgba(95,37,159,0.3)",
+                                  "0 0 0px rgba(239,68,68,0.4)",
+                                  "0 0 24px rgba(239,68,68,0.7)",
+                                  "0 0 0px rgba(239,68,68,0.4)",
                                 ],
                               }}
                               transition={{
@@ -810,13 +810,13 @@ export default function App() {
                                 repeat: Number.POSITIVE_INFINITY,
                                 ease: "easeInOut",
                               }}
-                              className="relative rounded-2xl"
+                              className="relative rounded-full"
                             >
                               <img
-                                src="/assets/uploads/satyam_qr_code-019d2e13-f910-749e-9ba6-607810b3100b-2.jpeg"
+                                src="/assets/uploads/satyam_qr-019d2e67-fed3-749c-aff6-2a34a1a0e216-1.jpg"
                                 alt="PhonePe QR Code — Satyam Kumar"
                                 data-ocid="phonepe.canvas_target"
-                                className="w-64 h-64 object-contain rounded-xl border-4 border-white shadow-lg bg-white p-2"
+                                className="w-96 h-96 object-contain shadow-xl bg-white p-2 rounded-xl"
                               />
                             </motion.div>
                             <div className="text-center space-y-1">
@@ -879,12 +879,12 @@ export default function App() {
                           </CardHeader>
                           <CardContent className="flex flex-col items-center gap-4 pb-8">
                             <div className="relative">
-                              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-[#5f259f]/30 to-primary/20 blur-sm" />
+                              <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-[#5f259f]/30 to-primary/20 blur-sm" />
                               <img
-                                src="/assets/uploads/satyam_qr_code-019d2e13-f910-749e-9ba6-607810b3100b-2.jpeg"
+                                src="/assets/uploads/satyam_qr-019d2e67-fed3-749c-aff6-2a34a1a0e216-1.jpg"
                                 alt="PhonePe QR Code — Satyam Kumar"
                                 data-ocid="phonepe.canvas_target"
-                                className="relative w-56 h-56 object-contain rounded-xl border-4 border-white shadow-lg bg-white p-2"
+                                className="relative w-96 h-96 object-contain shadow-xl bg-white p-2 rounded-xl"
                               />
                             </div>
                             <div className="text-center space-y-1">
@@ -1080,11 +1080,11 @@ export default function App() {
             <div className="flex items-center gap-2">
               <img
                 src="/assets/generated/kibble-kindness-logo-transparent.dim_200x200.png"
-                alt="Kibble Kindness"
+                alt="Thali Bharo"
                 className="h-8 w-8 object-contain"
               />
               <span className="font-display text-xl font-bold text-primary">
-                Kibble Kindness
+                Thali Bharo
               </span>
             </div>
             <nav className="flex gap-6 text-sm text-muted-foreground">
@@ -1122,7 +1122,7 @@ export default function App() {
               </button>
             </nav>
             <p className="text-sm text-muted-foreground text-center">
-              © {new Date().getFullYear()} Kibble Kindness. Built with{" "}
+              © {new Date().getFullYear()} Thali Bharo. Built with{" "}
               <Heart className="inline h-3 w-3 text-primary" /> using{" "}
               <a
                 href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
